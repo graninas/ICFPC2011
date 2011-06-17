@@ -7,8 +7,8 @@ import Types
 isVitalityValid :: Vitality -> Bool
 isVitalityValid    v = v >= -1 && v <= 65535
 
-isFieldValueValid :: FieldValue -> Bool
-isFieldValueValid (Value v) = v >= 0 && v <= 65535
+isFieldValueValid :: Function -> Bool
+isFieldValueValid (FieldValue v) = v >= 0 && v <= 65535
 isFieldValueValid _ = True
 
 isSlotNumberValid :: Int -> Slots -> Bool

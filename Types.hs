@@ -4,19 +4,6 @@ import qualified Data.Map as M
 
 type Vitality = Int
 
-data FieldValue = 
-		Value Int
-		| Func String
-	deriving (Eq, Show, Read)
-
-data Slot = Slot Vitality FieldValue
-	deriving (Eq, Show, Read)
-
-type Slots = M.Map Int Slot
-
-type FunctionResult = Either String FieldValue
-
-
 data FunctionArg =
 			  Undefined
 			| Function
@@ -41,7 +28,14 @@ data Function =
 			| Zombie FunctionArg FunctionArg
 	deriving (Eq, Show, Read)
 		
-data Slot' = Slot' Vitality Function
+type Field = Function
+data Slot = Slot Vitality Field
 	deriving (Eq, Show, Read)
 
 type Card = Function
+
+data ApplicationType = LeftApplication | RightApplication
+
+type Slots = M.Map Int Slot
+
+type GameState = (Slots, Slots)
