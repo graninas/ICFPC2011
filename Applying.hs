@@ -6,18 +6,28 @@ import qualified Data.Map as M
 import Types
 import Tests
 
-applyS :: Function -> Function -> Either String Function
-applyS (S Undef x y) f = Right $ S f x y
-applyS (S x Undef y) f = Right $ S x f y
-applyS (S x y Undef) f = Right $ S x y f
-applyS _ _ = Left "applyS failed."
+apply :: Function -> Function -> Either String Function
+apply (I) f = Right f
+--apply (Zero) _ = Right $ FValue 0  -- It seems wrong.
+apply (Succ Undef) (Zero) = Right $ FValue 1
+apply (Succ Undef) (FValue n)  | n < 65535 = Right $ FValue $ n+1
+							   | otherwise = Right $ FValue 65535
+apply (Dbl Undef) (Zero)     = Right $ FValue 0
+apply (Dbl Undef) (FValue n)   | n < 32768 = Right $ FValue (n * 2)
+							   | otherwise = Right $ FValue 65535				   
+apply (S Undef x y) f = Right $ S f x y
+apply (S x Undef y) f = Right $ S x f y
+apply (S x y Undef) f = Right $ S x y f
+
+
+apply _ _ = Left "apply failed."
 
 rightApp' :: Slot -> Card -> Either String Slot
-rightApp' (Slot vit (Func s)) card = applyS s card >>= \x -> Right $ Slot vit (Func x)
+rightApp' (Slot vit (Func s)) card = apply s card >>= \x -> Right $ Slot vit (Func x)
 rightApp' _ _ = Left "rightApp(') failed."
 
 
--- FIX ME: final reducing of the lambda.
+-- FIX ME: final reducing of the function, may be failed.
 rightApp :: Slot -> Card -> Either String Slot
 rightApp slot@(Slot vit field) card | isSlotAlive slot && isFunction field = rightApp' slot card
 rightApp _ _ = Left "rightApp failed"

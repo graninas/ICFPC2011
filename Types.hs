@@ -5,7 +5,7 @@ import qualified Data.Map as M
 type Vitality = Int
 
 data Function =
-			  Id
+			  I
 			| Zero
 			| Succ Function
 			| Dbl Function

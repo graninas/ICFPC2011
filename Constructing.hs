@@ -8,12 +8,12 @@ import qualified Data.Map as M
 
 slot :: Vitality -> Field -> Slot
 slot v f = Slot v f
-defaultSlot = slot 10000 (Func Id)
+defaultSlot = slot 10000 (Func I)
 
 defaultSlotList n = zip ([0..n-1]) (replicate n defaultSlot)
 defaultSlotMap  n = M.fromList $defaultSlotList n
 
-blankCard x | x == "I"      = Id
+blankCard x | x == "I"      = I
 			| x == "zero"   = Zero
 			| x == "succ"   = Succ Undef
 			| x == "dbl"    = Dbl Undef
