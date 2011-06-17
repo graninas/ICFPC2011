@@ -13,7 +13,7 @@ defaultSlotList n = zip ([0..n-1]) (replicate n defaultSlot)
 
 blankCard x | x == "I"      = Id
 			| x == "zero"   = Zero
-			| x == "succ"   = Succ Id
+			| x == "succ"   = Succ Id   -- Is "Id: an equivalent of undefined argument?
 			| x == "dbl"    = Dbl Id
 			| x == "get"    = Get Id
 			| x == "put"    = Put Id
@@ -26,4 +26,4 @@ blankCard x | x == "I"      = Id
 			| x == "copy"   = Copy Id
 			| x == "revive" = Revive Id
 			| x == "zombie" = Zombie Id Id
-blankCard _ = undefined
+blankCard _ = undefined  -- FIX ME: a parse error message.
