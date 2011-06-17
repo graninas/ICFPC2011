@@ -4,35 +4,34 @@ import qualified Data.Map as M
 
 type Vitality = Int
 
-data FunctionArg =
-			  Undefined
-			| Function
-	deriving (Eq, Show, Read)
-	
-data Function =
-			  FieldValue Int
-			| Id
+data FieldFunction =
+			  Id
 			| Zero
-			| Succ FunctionArg
-			| Dbl FunctionArg
-			| Get FunctionArg
-			| Put FunctionArg
-			| S FunctionArg FunctionArg FunctionArg
-			| K FunctionArg FunctionArg
-			| Int FunctionArg
-			| Dec FunctionArg
-			| Attack FunctionArg FunctionArg FunctionArg
-			| Help FunctionArg FunctionArg FunctionArg
-			| Copy FunctionArg
-			| Revive FunctionArg
-			| Zombie FunctionArg FunctionArg
+			| Succ FieldFunction
+			| Dbl FieldFunction
+			| Get FieldFunction
+			| Put FieldFunction
+			| S FieldFunction FieldFunction FieldFunction
+			| K FieldFunction FieldFunction
+			| Inc FieldFunction
+			| Dec FieldFunction
+			| Attack FieldFunction FieldFunction FieldFunction
+			| Help FieldFunction FieldFunction FieldFunction
+			| Copy FieldFunction
+			| Revive FieldFunction
+			| Zombie FieldFunction FieldFunction
+			| FValue Int
+	deriving (Eq, Show, Read)
+
+data Field =
+			  Value Int
+			| Function FieldFunction
 	deriving (Eq, Show, Read)
 		
-type Field = Function
 data Slot = Slot Vitality Field
 	deriving (Eq, Show, Read)
 
-type Card = Function
+type Card = FieldFunction
 
 data ApplicationType = LeftApplication | RightApplication
 

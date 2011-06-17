@@ -15,8 +15,13 @@ applicationType _ = undefined
 
 slotNo = read
 
-rightApplication :: GameState -> Int -> Card -> String
-rightApplication gs slNo card = "All Ok."
+rightApplication :: GameState -> Int -> Card -> (String, GameState)
+rightApplication curGS@(slots1, slots2) slNo card =
+			case M.lookup slNo slots1 of
+				Nothing -> ("Invalid argument", curGS)
+				Just slot -> case rightApp slot card of
+					Just newSlot -> ("All ok.", curGS)     -- FIX ME: ("Applying success", newGS)
+					Nothing -> ("Applying failed", curGS)  -- FIX ME: ("Applying failed",  newGS)
 
 run :: GameState -> IO ()
 run sl = do
@@ -25,14 +30,14 @@ run sl = do
 	case applicationType x of
 		LeftApplication -> undefined
 		RightApplication -> do
-								putStrLn "slot no?"
-								y <- getLine
-								putStrLn "card name?"
-								z <- getLine
-								putStrLn $ rightApplication sl (slotNo y) (blankCard z)
-								
-	
-	
+			putStrLn "slot no?"
+			y <- getLine
+			putStrLn "card name?"
+			z <- getLine
+			let (str, gs) = rightApplication sl (slotNo y) (blankCard z)
+			putStrLn str
+			run gs
+
 
 
 

@@ -5,25 +5,25 @@ import Applying
 import Tests
 
 
-slot :: Vitality -> Function -> Slot
+slot :: Vitality -> Field -> Slot
 slot v f = Slot v f
-defaultSlot = slot 10000 Id
+defaultSlot = slot 10000 (Function Id)
 
 defaultSlotList n = zip ([0..n-1]) (replicate n defaultSlot)
 
 blankCard x | x == "I"      = Id
 			| x == "zero"   = Zero
-			| x == "succ"   = Succ Undefined
-			| x == "dbl"    = Dbl Undefined
-			| x == "get"    = Get Undefined
-			| x == "put"    = Put Undefined
-			| x == "S"      = S Undefined Undefined Undefined
-			| x == "K"      = K Undefined Undefined
-			| x == "inc"    = Int Undefined
-			| x == "dec"    = Dec Undefined
-			| x == "attack" = Attack Undefined Undefined Undefined
-			| x == "help"   = Help Undefined Undefined Undefined
-			| x == "copy"   = Copy Undefined
-			| x == "revive" = Revive Undefined
-			| x == "zombie" = Zombie Undefined Undefined
+			| x == "succ"   = Succ Id
+			| x == "dbl"    = Dbl Id
+			| x == "get"    = Get Id
+			| x == "put"    = Put Id
+			| x == "S"      = S Id Id Id
+			| x == "K"      = K Id Id
+			| x == "inc"    = Inc Id
+			| x == "dec"    = Dec Id
+			| x == "attack" = Attack Id Id Id
+			| x == "help"   = Help Id Id Id
+			| x == "copy"   = Copy Id
+			| x == "revive" = Revive Id
+			| x == "zombie" = Zombie Id Id
 blankCard _ = undefined
