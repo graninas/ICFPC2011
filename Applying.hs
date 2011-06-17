@@ -14,11 +14,13 @@ apply (Succ Undef) (FValue n)  | n < 65535 = Right $ FValue $ n+1
 							   | otherwise = Right $ FValue 65535
 apply (Dbl Undef) (Zero)     = Right $ FValue 0
 apply (Dbl Undef) (FValue n)   | n < 32768 = Right $ FValue (n * 2)
-							   | otherwise = Right $ FValue 65535				   
+							   | otherwise = Right $ FValue 65535
+-- apply (Get Undef) (Zero)     = ??? slots and gamestate needed.
+-- other applicators.
+
 apply (S Undef x y) f = Right $ S f x y
 apply (S x Undef y) f = Right $ S x f y
 apply (S x y Undef) f = Right $ S x y f
-
 
 apply _ _ = Left "apply failed."
 
@@ -33,10 +35,7 @@ rightApp slot@(Slot vit field) card | isSlotAlive slot && isFunction field = rig
 rightApp _ _ = Left "rightApp failed"
 
 {-
-			  Id
-			| Zero
-			| Succ FieldFunction
-			| Dbl FieldFunction
+
 			| Get FieldFunction
 			| Put FieldFunction
 			| S FieldFunction FieldFunction FieldFunction
