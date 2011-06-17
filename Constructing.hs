@@ -4,26 +4,30 @@ import Types
 import Applying
 import Tests
 
+import qualified Data.Map as M
 
 slot :: Vitality -> Field -> Slot
 slot v f = Slot v f
-defaultSlot = slot 10000 (Function Id)
+defaultSlot = slot 10000 (Func Id)
 
 defaultSlotList n = zip ([0..n-1]) (replicate n defaultSlot)
+defaultSlotMap  n = M.fromList $defaultSlotList n
 
 blankCard x | x == "I"      = Id
 			| x == "zero"   = Zero
-			| x == "succ"   = Succ Id   -- Is "Id: an equivalent of undefined argument?
-			| x == "dbl"    = Dbl Id
-			| x == "get"    = Get Id
-			| x == "put"    = Put Id
-			| x == "S"      = S Id Id Id
-			| x == "K"      = K Id Id
-			| x == "inc"    = Inc Id
-			| x == "dec"    = Dec Id
-			| x == "attack" = Attack Id Id Id
-			| x == "help"   = Help Id Id Id
-			| x == "copy"   = Copy Id
-			| x == "revive" = Revive Id
-			| x == "zombie" = Zombie Id Id
+			| x == "succ"   = Succ Undef
+			| x == "dbl"    = Dbl Undef
+			| x == "get"    = Get Undef
+			| x == "put"    = Put Undef
+			| x == "S"      = S Undef Undef Undef
+			| x == "K"      = K Undef Undef
+			| x == "inc"    = Inc Undef
+			| x == "dec"    = Dec Undef
+			| x == "attack" = Attack Undef Undef Undef
+			| x == "help"   = Help Undef Undef Undef
+			| x == "copy"   = Copy Undef
+			| x == "revive" = Revive Undef
+			| x == "zombie" = Zombie Undef Undef
 blankCard _ = undefined  -- FIX ME: a parse error message.
+
+initGameState = GameState (defaultSlotMap 255) (defaultSlotMap 255) Player0 0

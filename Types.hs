@@ -4,37 +4,46 @@ import qualified Data.Map as M
 
 type Vitality = Int
 
-data FieldFunction =
+data Function =
 			  Id
 			| Zero
-			| Succ FieldFunction
-			| Dbl FieldFunction
-			| Get FieldFunction
-			| Put FieldFunction
-			| S FieldFunction FieldFunction FieldFunction
-			| K FieldFunction FieldFunction
-			| Inc FieldFunction
-			| Dec FieldFunction
-			| Attack FieldFunction FieldFunction FieldFunction
-			| Help FieldFunction FieldFunction FieldFunction
-			| Copy FieldFunction
-			| Revive FieldFunction
-			| Zombie FieldFunction FieldFunction
+			| Succ Function
+			| Dbl Function
+			| Get Function
+			| Put Function
+			| S Function Function Function
+			| K Function Function
+			| Inc Function
+			| Dec Function
+			| Attack Function Function Function
+			| Help Function Function Function
+			| Copy Function
+			| Revive Function
+			| Zombie Function Function
 			| FValue Int
+			| Undef
 	deriving (Eq, Show, Read)
 
 data Field =
-			  Value Int
-			| Function FieldFunction
+			  Val  Int
+			| Func Function
 	deriving (Eq, Show, Read)
 		
 data Slot = Slot Vitality Field
 	deriving (Eq, Show, Read)
 
-type Card = FieldFunction
+type Card = Function
 
 data ApplicationType = LeftApplication | RightApplication
 
 type Slots = M.Map Int Slot
 
-type GameState = (Slots, Slots)
+data Player = Player0 | Player1
+	deriving (Eq, Show, Read)
+
+data GameState = GameState {
+	propSlots :: Slots,
+	opSlots   :: Slots,
+	curPlayer :: Player,
+	turn      :: Int
+} deriving (Eq, Show, Read)
