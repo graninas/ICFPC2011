@@ -6,7 +6,7 @@ type Vitality = Int
 
 data Function =
 			  I
-			| Zero
+			| Zero -- Zero may be deleted because we have FValue.
 			| Succ Function
 			| Dbl Function
 			| Get Function
@@ -35,6 +35,10 @@ data Slot = Slot Vitality Field
 type Card = Function
 
 data ApplicationType = LeftApplication | RightApplication
+
+data ApplicationResult =
+		SaveSlotField Field
+	deriving (Eq, Show, Read)
 
 type Slots = M.Map Int Slot
 
