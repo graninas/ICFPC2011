@@ -53,17 +53,18 @@ run "alt" oldGS@(GameState slots1 slots2 curP turn) = do
 			putStrLn str
 			run "alt" (gs {curPlayer = otherPlayer (curPlayer gs)})
 
-getPlayerTurn scheme@(SchemeEval templIdx templRepCnt plTIdx templates) = (scheme, (snd (templates !! templIdx) !! plTIdx))
+getPlayerTurn :: SchemeEvaluating -> PlayerTurn
+getPlayerTurn scheme@(SchemeEval templIdx templRepCnt plTIdx templates) = (snd (templates !! templIdx) !! plTIdx)
 			
-callScheme :: SchemeEvaluating -> (SchemeEvaluating, PlayerTurn)
-callScheme (SchemeEval templIdx templRepCnt plTIdx templates) = 
+evalScheme :: SchemeEvaluating -> SchemeEvaluating
+evalScheme (SchemeEval templIdx templRepCnt plTIdx templates) = 
 	let (cnt, plTurns) = (templates !! templIdx) in
 		case plTIdx + 1 == length plTurns of -- Достигли конца текущего шаблона.
-			True  -> if cnt == -1 || templRepCnt < cnt then getPlayerTurn (SchemeEval templIdx (templRepCnt+1) 0 templates)
+			True  -> if cnt == -1 || templRepCnt < cnt then SchemeEval templIdx (templRepCnt+1) 0 templates
 					 else case templIdx + 1 == length templates of
-							True  -> getPlayerTurn $ SchemeEval 0 0 0 templates
-							False -> getPlayerTurn $ SchemeEval (templIdx+1) 0 0 templates
-			False -> getPlayerTurn $ SchemeEval templIdx templRepCnt (plTIdx+1) templates
+							True  -> SchemeEval 0 0 0 templates
+							False -> SchemeEval (templIdx+1) 0 0 templates
+			False -> SchemeEval templIdx templRepCnt (plTIdx+1) templates
 
 evalPlayerTurn :: PlayerTurn -> GameState -> (String, GameState)
 evalPlayerTurn (appType, slotNumber, cardName) oldGS@(GameState slots1 slots2 curP turn) =
@@ -71,31 +72,39 @@ evalPlayerTurn (appType, slotNumber, cardName) oldGS@(GameState slots1 slots2 cu
 		1 -> leftApplication  oldGS slotNumber (blankCard cardName)
 		2 -> rightApplication oldGS slotNumber (blankCard cardName)
 
-runTest' :: SchemeEvaluating -> SchemeEvaluating -> GameState -> IO ()
-runTest' pl1SchemeEval pl2SchemeEval oldGS@(GameState _ _ curP _) = do
-	putStrLn $ showGameState oldGS
+runTest' :: SchemeEvaluating -> SchemeEvaluating -> (Bool, Bool) -> GameState -> IO ()
+runTest' pl1SchemeEval pl2SchemeEval showPl@(showP1, showP2) oldGS@(GameState _ _ curP _) = do
 	case curP of
 		Player0 ->
 			let
-				(newSchemeEval,  playerTurn) = callScheme pl1SchemeEval
+				playerTurn = getPlayerTurn pl1SchemeEval
+				newSchemeEval = evalScheme pl1SchemeEval
 				(msg, newGS) = evalPlayerTurn playerTurn oldGS
 			in do
-					putStrLn $ showPlayerTurn $ playerTurn
-					putStrLn msg
-					runTest' newSchemeEval pl2SchemeEval newGS {curPlayer = otherPlayer curP}
+					if showP1 then do
+						putStrLn $ showGameState oldGS
+						putStrLn $ showPlayerTurn $ playerTurn
+						putStrLn msg
+					else return ()
+					runTest' newSchemeEval pl2SchemeEval showPl newGS {curPlayer = otherPlayer curP}
 		Player1 ->
 			let
-				(newSchemeEval, playerTurn) = callScheme pl2SchemeEval
+				playerTurn = getPlayerTurn pl2SchemeEval
+				newSchemeEval = evalScheme pl2SchemeEval
 				(msg, newGS) = evalPlayerTurn playerTurn oldGS
 			in do
-					putStrLn $ showPlayerTurn $ playerTurn
-					putStrLn msg
-					runTest' pl1SchemeEval newSchemeEval newGS {curPlayer = otherPlayer curP}
+					if showP2 then do
+						putStrLn $ showGameState oldGS
+						putStrLn $ showPlayerTurn $ playerTurn
+						putStrLn msg
+					else return ()
+					runTest' pl1SchemeEval newSchemeEval showPl newGS {curPlayer = otherPlayer curP}
 			
-runTest pl1Scheme pl2Scheme =
-	runTest' (SchemeEval 0 0 0 pl1Scheme) (SchemeEval 0 0 0 pl2Scheme) initGameState
+runTest pl1Scheme pl2Scheme  plShow =
+	runTest' (SchemeEval 0 0 0 pl1Scheme) (SchemeEval 0 0 0 pl2Scheme) plShow initGameState
 
-runTest1 = runTest fieldToFieldApp stupidScheme
+runTest1 = runTest fieldToFieldApp stupidScheme (True, False)
+runTest2 = runTest fieldToFieldApp infiniteS    (True, False)
 
 main :: IO ()
 main = do 

@@ -4,9 +4,14 @@ import Types
 
 stupidScheme :: Scheme
 stupidScheme = [
-	(-1, [(1, 0, "zero")])
+	(-1, [(2, 0, "zero")])
 	]
 
+infiniteS :: Scheme
+infiniteS = [
+	(-1, [(1, 0, "S")])
+	]
+	
 fieldToFieldApp :: Scheme
 fieldToFieldApp = [
 	(1, [
