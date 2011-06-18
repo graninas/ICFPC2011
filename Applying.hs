@@ -22,11 +22,11 @@ modifyMaybeThisSlot mbThisSl@(pl1, i1, (Slot v1 _)) realSl@(pl, i, (Slot v _)) n
 
 applyInc :: Player -> Int -> Slot -> ModifiedSlot
 applyInc pl i (Slot v f) | v > 0 && v < 65535 = (pl, i, Slot (v + 1) f)
-applyInc pl i (Slot v f) | otherwise          = (pl, i, Slot v       f)
+applyInc pl i sl@(Slot v f) | otherwise          = (pl, i, sl)
 
 applyDec :: Player -> Int -> Slot -> ModifiedSlot
 applyDec pl i (Slot v f) | v > 0     = (pl, i, Slot (v - 1) f)
-applyDec pl i (Slot v f) | otherwise = (pl, i, Slot v       f)
+applyDec pl i sl@(Slot v f) | otherwise = (pl, i, sl)
 
 applyAttack :: Player -> Int -> Slot -> Int -> ModifiedSlot
 applyAttack pl j sl@(Slot v f) n | isSlotAlive sl =
@@ -43,10 +43,13 @@ applyHelp   pl j sl@(Slot v f) n | isSlotAlive sl =
 			if v + divided > 65536 then (pl, j, Slot 65536 f)
 							   else (pl, j, Slot (v + divided) f)
 applyDevote pl i sl@(Slot v f) n | n <= v = (pl, i, Slot (v - n) f)
-								 | otherwise = undefined 
+								 | otherwise = undefined              -- Probably it cannot to be.
 
+applyRevive pl i sl@(Slot v f) | v < 0     = (pl, i, Slot 1 f)
+							   | otherwise = (pl, i, sl)
+								 
 apply :: GameState -> ModifiedSlot -> Function -> Function -> Either String ApplicationResult
-apply gs ms (I) f = applyResult gs (modifyFunction ms f)
+apply gs ms (I)          f      = applyResult gs (modifyFunction ms f)
 apply gs ms (Succ Undef) (Zero) = applyResult gs (modifyFunction ms (FValue 1))
 apply gs ms (Succ Undef) (FValue n)  | n < 65535 = applyResult gs (modifyFunction ms (FValue $ n+1))
 							        | otherwise  = applyResult gs (modifyFunction ms (FValue 65535))
@@ -122,25 +125,12 @@ apply gs@(GameState _ _ pl _) ms   (Attack (FValue i) (FValue j) Undef) (FValue 
 							False -> Left $ "Error of applying 'attack' to " ++ show i ++ ": n > v."
 					Nothing -> Left $ "Error of applying 'attack' to " ++ show i ++ ": invalid proponent slot number."
 			Nothing -> Left $ "Error of applying 'attack' to " ++ show j ++ ": invalid opponent slot number."
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
-			
+
 -- help
 apply gs ms (Help Undef j n) (Zero)         = applyResult gs (modifyFunction ms (Help (FValue 0) j n))
 apply gs ms (Help Undef j n) val@(FValue _) = applyResult gs (modifyFunction ms (Help val j n))
 apply gs ms (Help i Undef n) (Zero)         = applyResult gs (modifyFunction ms (Help i (FValue 0) n))
 apply gs ms (Help i Undef n) val@(FValue _) = applyResult gs (modifyFunction ms (Help i val n))
-
 
 apply gs@(GameState _ _ pl _) ms f@(Help i j Undef) (Zero)   = apply gs ms f (FValue 0)
 apply gs@(GameState _ _ pl _) ms   (Help (FValue i) (FValue j) Undef) (FValue n) =
@@ -148,18 +138,41 @@ apply gs@(GameState _ _ pl _) ms   (Help (FValue i) (FValue j) Undef) (FValue n)
 		case M.lookup i plSlots of
 			Just slotToDevote@(Slot v _) ->
 				case M.lookup j plSlots of
-					Just slotToHelp ->
+					Just slotToHelp@(Slot helpV helpF) ->
 						case n <= v of
 							True -> let
-										 Right (newGSdevoted, _)          = applyResult gs           (applyDevote pl i slotToDevote n)
-										 Right (newGShelped, helpedMS)    = applyResult newGSdevoted (applyHelp   pl j slotToHelp   n)
+										 Right (newGSdevoted, devotedMS)  = applyResult gs           (applyDevote pl i slotToDevote n)
+										 Right (newGShelped, helpedMS)    = applyResult newGSdevoted (modifyMaybeThisSlot devotedMS (applyHelp pl j slotToHelp n) helpF)
 										 Right (newGSidentified, modSlot) = applyResult newGShelped  (modifyMaybeThisSlot helpedMS ms I)
 									in Right (newGSidentified, modSlot)
 							False -> Left $ "Error of applying 'help' to " ++ show i ++ ": n > v."
 					Nothing -> Left $ "Error of applying 'help' to " ++ show j ++ ": invalid proponent slot number."
 			Nothing -> Left $ "Error of applying 'help' to " ++ show i ++ ": invalid proponent slot number."
 
+-- copy
+apply gs                      ms (Copy Undef) (Zero)     = apply gs ms (Copy Undef) (FValue 0)
+apply gs@(GameState _ _ pl _) ms (Copy Undef) (FValue i) =
+		let otherPlSlots = playerSlots gs (otherPlayer pl) in
+		case M.lookup i otherPlSlots of
+			Just (Slot _ f) -> applyResult gs (modifyFunction ms f)
+			Nothing -> Left $ "Error of applying 'copy' to " ++ show i ++ ": invalid opponent slot number."
+			
+-- revive
+apply gs                      ms (Revive Undef) (Zero)     = apply gs ms (Revive Undef) (FValue 0)
+apply gs@(GameState _ _ pl _) ms (Revive Undef) (FValue i) =
+		let plSlots = playerSlots gs pl in
+		case M.lookup i plSlots of
+			Just slotToRevive@(Slot _ f) ->
+								let
+									Right (newGSrevived, revivedMS)    = applyResult gs         (applyRevive pl i slotToRevive)
+									Right (newGSidentified, modSlot) = applyResult newGSrevived (modifyMaybeThisSlot revivedMS ms I)
+								in  Right (newGSidentified, modSlot)
+			Nothing -> Left $ "Error of applying 'revive' to " ++ show i ++ ": invalid proponent slot number."
+			
 apply _ _ f c = Left $ "Error of applying " ++ show f ++ " to " ++ show c ++ ": don't know how to apply."
+
+
+
 
 -- FIX ME: final reducing of the function, may be failed.
 rightApp' :: GameState -> ModifiedSlot -> Card -> Either String GameState
