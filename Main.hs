@@ -68,7 +68,7 @@ evalScheme (SchemeEval templIdx templRepCnt plTIdx templates) =
 			False -> SchemeEval templIdx templRepCnt (plTIdx+1) templates
 
 evalPlayerTurn :: PlayerTurn -> GameState -> (String, GameState)
-evalPlayerTurn (appType, slotNumber, cardName) oldGS@(GameState slots1 slots2 curP turn) =
+evalPlayerTurn (appType, slotNumber, cardName) oldGS@(GameState slots1 slots2 curP t) =
 	case appType of
 		1 -> leftApplication  oldGS slotNumber (blankCard cardName)
 		2 -> rightApplication oldGS slotNumber (blankCard cardName)
@@ -80,12 +80,13 @@ runTest' pl1SchemeEval pl2SchemeEval showPl@(showP1, showP2) oldGS@(GameState _ 
 			let
 				playerTurn = getPlayerTurn pl1SchemeEval
 				newSchemeEval = evalScheme pl1SchemeEval
-				(msg, newGS) = evalPlayerTurn playerTurn oldGS
+				(msg, newGS)  = evalPlayerTurn playerTurn oldGS
 			in do
 					if showP1 then do
 						putStrLn $ showGameState oldGS
 						putStrLn $ showPlayerTurn $ playerTurn
 						putStrLn msg
+						appendFile "test.log" ((showGameState oldGS) ++ (showPlayerTurn $ playerTurn) ++ msg)
 					else return ()
 					runTest' newSchemeEval pl2SchemeEval showPl newGS {curPlayer = otherPlayer curP}
 		Player1 ->
@@ -98,10 +99,12 @@ runTest' pl1SchemeEval pl2SchemeEval showPl@(showP1, showP2) oldGS@(GameState _ 
 						putStrLn $ showGameState oldGS
 						putStrLn $ showPlayerTurn $ playerTurn
 						putStrLn msg
+						appendFile "test.log" ((showGameState oldGS) ++ (showPlayerTurn $ playerTurn) ++ msg)
 					else return ()
-					runTest' pl1SchemeEval newSchemeEval showPl newGS {curPlayer = otherPlayer curP}
-			
-runTest pl1Scheme pl2Scheme  plShow =
+					runTest' pl1SchemeEval newSchemeEval showPl (newGS{turn = 1 + turn newGS}) {curPlayer = otherPlayer curP}
+
+runTest pl1Scheme pl2Scheme  plShow = do
+	writeFile "test.log" ("Testing scheme: " ++ show pl1Scheme)
 	runTest' (SchemeEval 0 0 0 pl1Scheme) (SchemeEval 0 0 0 pl2Scheme) plShow initGameState
 
 runTest1 = runTest fieldToFieldApp stupidScheme (True, False)

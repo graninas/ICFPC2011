@@ -60,3 +60,4 @@ type Scheme   = [Template]
 type TemplateIndex   = Int
 type PlayerTurnIndex = Int
 data SchemeEvaluating = SchemeEval TemplateIndex TemplateRepeatCount PlayerTurnIndex Scheme
+	deriving (Eq, Show, Read)

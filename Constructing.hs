@@ -29,7 +29,7 @@ blankCard x | x == "I"      = I
 			| x == "zombie" = Zombie Undef Undef
 blankCard _ = undefined  -- FIX ME: a parse error message.
 
-initGameState = GameState (defaultSlotMap 256) (defaultSlotMap 256) Player0 0
+initGameState = GameState (defaultSlotMap 256) (defaultSlotMap 256) Player0 1
 
 playerSlots :: GameState -> Player -> Slots
 playerSlots (GameState propSl opSl _ _) pl | pl == Player0 = propSl
