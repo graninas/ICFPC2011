@@ -49,10 +49,11 @@ apply _ ms (Put Undef) _     = Right [modifyFunction ms I]
 apply _ ms (S Undef g x) arg = Right [modifyFunction ms (S arg g x)]
 apply _ ms (S f Undef x) arg = Right [modifyFunction ms (S f arg x)]
 apply gs ms (S f g Undef) arg = let
-									Right (newSlh@(_, _, (Slot _ newFh)):msh) = apply gs ms f arg				-- Maybe error.
-									Right (newSly@(_, _, (Slot _ newFy)):msy) = apply gs newSlh g arg
-									Right (newSlz@(_, _, (Slot _ newFz)):msz) = apply gs newSly newFh newFy
-								in Right $ [modifyFunction newSlz newFz] ++ msh ++ msy ++ msz
+									Right mh@(newSlh@(_, _, (Slot _ newFh)):msh) = apply gs ms f arg				-- Maybe error.
+									Right my@(newSly@(_, _, (Slot _ newFy)):msy) = apply gs newSlh g arg
+									Right mz = apply gs newSly newFh newFy
+								in  Right $ mz ++ msh ++ msy
+
 apply _ ms  (K Undef y)   arg = Right [modifyFunction ms (K arg y)]
 apply _ ms  (K x Undef)   _   = Right [modifyFunction ms x]
 apply gs ms (Inc Undef) (Zero) = apply gs ms (Inc Undef) (FValue 0)

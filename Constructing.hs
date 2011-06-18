@@ -32,8 +32,8 @@ blankCard _ = undefined  -- FIX ME: a parse error message.
 initGameState = GameState (defaultSlotMap 255) (defaultSlotMap 255) Player0 0
 
 playerSlots :: GameState -> Player -> Slots
-playerSlots (GameState slots _ _ _) Player0 = slots
-playerSlots (GameState _ slots _ _) Player1 = slots
+playerSlots (GameState propSl opSl _ _) pl | pl == Player0 = propSl
+										   | pl == Player1 = opSl
 playerSlots _ _ = undefined
 
 updateSlot i slot slots | isSlotNumberValid i slots = M.update (\x -> Just slot) i slots
