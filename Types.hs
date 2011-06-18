@@ -24,10 +24,7 @@ data Function =
 			| Undef
 	deriving (Eq, Show, Read)
 
-data Field =
-			  Val  Int
-			| Func Function
-	deriving (Eq, Show, Read)
+type Field = Function
 		
 data Slot = Slot Vitality Field
 	deriving (Eq, Show, Read)
@@ -36,15 +33,14 @@ type Card = Function
 
 data ApplicationType = LeftApplication | RightApplication
 
-data ApplicationResult =
-		SaveSlotField Field
-	deriving (Eq, Show, Read)
-
 type Slots = M.Map Int Slot
 
 data Player = Player0 | Player1
 	deriving (Eq, Show, Read)
 
+type ModifiedSlot  = (Player, Int, Slot)
+type ModifiedSlots = [ModifiedSlot]
+	
 data GameState = GameState {
 	propSlots :: Slots,
 	opSlots   :: Slots,

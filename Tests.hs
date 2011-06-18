@@ -8,8 +8,9 @@ isVitalityValid :: Vitality -> Bool
 isVitalityValid    v = v >= -1 && v <= 65535
 
 isFieldValueValid :: Field -> Bool
-isFieldValueValid (Val v) = v >= 0 && v <= 65535
-isFieldValueValid _ = True
+isFieldValueValid (FValue v) = v >= 0 && v <= 65535
+isFieldValueValid Zero       = True
+isFieldValueValid _          = undefined  -- Maybe error.
 
 isSlotNumberValid :: Int -> Slots -> Bool
 isSlotNumberValid = M.member
@@ -17,6 +18,8 @@ isSlotNumberValid = M.member
 isSlotAlive :: Slot -> Bool
 isSlotAlive (Slot v _) = isVitalityValid v && v > 0
 
-isFunction :: Field -> Bool
-isFunction (Val _) = False
-isFunction _ = True
+isFunctionField :: Slot -> Bool
+isFunctionField (Slot _ (FValue _)) = False
+isFunctionField (Slot _ Zero)       = False
+isFunctionField (Slot _ Undef)      = undefined  -- Maybe errror.
+isFunctionField _          = True
