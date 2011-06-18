@@ -109,6 +109,7 @@ runTest pl1Scheme pl2Scheme  plShow = do
 
 runTest1 = runTest fieldToFieldApp stupidScheme (True, False)
 runTest2 = runTest fieldToFieldApp infiniteS    (True, False)
+runTest3 = runTest infiniteLoop    infiniteS    (True, True)
 
 main :: IO ()
 main = do 

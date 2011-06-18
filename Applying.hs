@@ -79,7 +79,6 @@ apply gs ms (S f Undef x) arg = applyResult gs (modifyFunction ms (S f arg x))
 apply gs ms (S f g Undef) arg = let
 									Right (newGSh, modSlot1@(_, _, (Slot _ h))) = apply gs     ms       f arg
 									Right (newGSy, modSlot2@(_, _, (Slot _ y))) = apply newGSh modSlot1 g arg
-									Left str = apply newGSh modSlot1 g arg
 								in apply newGSy modSlot2 h y
 
 apply gs ms (K Undef y) arg    = applyResult gs (modifyFunction ms (K arg y))

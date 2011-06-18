@@ -15,6 +15,14 @@ infiniteS = [
 	(-1, [(1, 0, "S")])
 	]
 
+infiniteLoop :: Scheme
+infiniteLoop = [
+	(1, [
+		(2, 0, "S"),
+		(2, 0, "get"),
+		(2, 0, "I"),
+		(2, 0, "zero")])]
+	
 fieldToFieldApp :: Scheme
 fieldToFieldApp = [
 	(1, [
@@ -37,4 +45,5 @@ fieldToFieldApp = [
 	  (1, 0, "S"),
 	  (2, 0, "succ"),
 	  (2, 0, "zero")])
-	 ] ++ defaultNothingTemplate
+	 ]
+	-- ++ defaultNothingTemplate
