@@ -40,6 +40,7 @@ data Player = Player0 | Player1
 
 type ModifiedSlot  = (Player, Int, Slot)
 type ModifiedSlots = [ModifiedSlot]
+type ApplicationResult = (GameState, ModifiedSlot)
 	
 data GameState = GameState {
 	propSlots :: Slots,
