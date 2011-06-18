@@ -38,6 +38,13 @@ applyKickBack :: Player -> Int -> Slot -> Int -> ModifiedSlot
 applyKickBack pl i sl@(Slot v f) n | n <= v = (pl, i, Slot (v - n) f)
 								   | otherwise = undefined            -- Probably it cannot to be.
 
+applyHelp   pl j sl@(Slot v f) n | isSlotAlive sl =
+		let divided = div (n * 11) 10 in
+			if v + divided > 65536 then (pl, j, Slot 65536 f)
+							   else (pl, j, Slot (v + divided) f)
+applyDevote pl i sl@(Slot v f) n | n <= v = (pl, i, Slot (v - n) f)
+								 | otherwise = undefined 
+
 apply :: GameState -> ModifiedSlot -> Function -> Function -> Either String ApplicationResult
 apply gs ms (I) f = applyResult gs (modifyFunction ms f)
 apply gs ms (Succ Undef) (Zero) = applyResult gs (modifyFunction ms (FValue 1))
@@ -98,8 +105,8 @@ apply gs ms (Attack Undef j n) (Zero)         = applyResult gs (modifyFunction m
 apply gs ms (Attack Undef j n) val@(FValue _) = applyResult gs (modifyFunction ms (Attack val j n))
 apply gs ms (Attack i Undef n) (Zero)         = applyResult gs (modifyFunction ms (Attack i (FValue 0) n))
 apply gs ms (Attack i Undef n) val@(FValue _) = applyResult gs (modifyFunction ms (Attack i val n))
+apply gs ms f@(Attack i j Undef) (Zero)       = apply gs ms f (FValue 0)
 
-apply gs@(GameState _ _ pl _) ms f@(Attack i j Undef) (Zero)   = apply gs ms f (FValue 0)
 apply gs@(GameState _ _ pl _) ms   (Attack (FValue i) (FValue j) Undef) (FValue n) =
 		let otherP = otherPlayer pl in
 		case M.lookup (255 - j) (playerSlots gs otherP) of
@@ -119,6 +126,39 @@ apply gs@(GameState _ _ pl _) ms   (Attack (FValue i) (FValue j) Undef) (FValue 
 			
 			
 			
+			
+			
+			
+			
+			
+			
+			
+			
+			
+-- help
+apply gs ms (Help Undef j n) (Zero)         = applyResult gs (modifyFunction ms (Help (FValue 0) j n))
+apply gs ms (Help Undef j n) val@(FValue _) = applyResult gs (modifyFunction ms (Help val j n))
+apply gs ms (Help i Undef n) (Zero)         = applyResult gs (modifyFunction ms (Help i (FValue 0) n))
+apply gs ms (Help i Undef n) val@(FValue _) = applyResult gs (modifyFunction ms (Help i val n))
+
+
+apply gs@(GameState _ _ pl _) ms f@(Help i j Undef) (Zero)   = apply gs ms f (FValue 0)
+apply gs@(GameState _ _ pl _) ms   (Help (FValue i) (FValue j) Undef) (FValue n) =
+		let plSlots = playerSlots gs pl in
+		case M.lookup i plSlots of
+			Just slotToDevote@(Slot v _) ->
+				case M.lookup j plSlots of
+					Just slotToHelp ->
+						case n <= v of
+							True -> let
+										 Right (newGSdevoted, _)          = applyResult gs           (applyDevote pl i slotToDevote n)
+										 Right (newGShelped, helpedMS)    = applyResult newGSdevoted (applyHelp   pl j slotToHelp   n)
+										 Right (newGSidentified, modSlot) = applyResult newGShelped  (modifyMaybeThisSlot helpedMS ms I)
+									in Right (newGSidentified, modSlot)
+							False -> Left $ "Error of applying 'help' to " ++ show i ++ ": n > v."
+					Nothing -> Left $ "Error of applying 'help' to " ++ show j ++ ": invalid proponent slot number."
+			Nothing -> Left $ "Error of applying 'help' to " ++ show i ++ ": invalid proponent slot number."
+
 apply _ _ f c = Left $ "Error of applying " ++ show f ++ " to " ++ show c ++ ": don't know how to apply."
 
 -- FIX ME: final reducing of the function, may be failed.
