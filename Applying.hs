@@ -47,7 +47,10 @@ applyDevote pl i sl@(Slot v f) n | n <= v = (pl, i, Slot (v - n) f)
 
 applyRevive pl i sl@(Slot v f) | v < 0     = (pl, i, Slot 1 f)
 							   | otherwise = (pl, i, sl)
-								 
+
+applyZombie pl i sl f | not $ isSlotAlive $ sl = (pl, i, Slot (-1) f)
+					  | otherwise = (pl, i, sl)
+							   
 apply :: GameState -> ModifiedSlot -> Function -> Function -> Either String ApplicationResult
 apply gs ms (I)          f      = applyResult gs (modifyFunction ms f)
 apply gs ms (Succ Undef) (Zero) = applyResult gs (modifyFunction ms (FValue 1))
@@ -164,11 +167,26 @@ apply gs@(GameState _ _ pl _) ms (Revive Undef) (FValue i) =
 		case M.lookup i plSlots of
 			Just slotToRevive@(Slot _ f) ->
 								let
-									Right (newGSrevived, revivedMS)    = applyResult gs         (applyRevive pl i slotToRevive)
+									Right (newGSrevived, revivedMS)  = applyResult gs           (applyRevive pl i slotToRevive)
 									Right (newGSidentified, modSlot) = applyResult newGSrevived (modifyMaybeThisSlot revivedMS ms I)
 								in  Right (newGSidentified, modSlot)
 			Nothing -> Left $ "Error of applying 'revive' to " ++ show i ++ ": invalid proponent slot number."
-			
+
+apply gs ms (Zombie Undef x) (Zero)     = applyResult gs (modifyFunction ms (Zombie (FValue 0) x))
+apply gs ms (Zombie Undef x) val@(FValue i) = applyResult gs (modifyFunction ms (Zombie val x))
+apply gs@(GameState _ _ pl _) ms (Zombie (FValue i) Undef) f = 
+		let
+			otherP = otherPlayer pl
+			otherPlSlots = playerSlots gs otherP
+		in
+		case M.lookup (255 - i) otherPlSlots of
+			Just slotToZombie@(Slot _ f) ->
+								let
+									Right (newGSzombied, zombiedMS)  = applyResult gs (applyZombie otherP i slotToZombie f)
+									Right (newGSidentified, modSlot) = applyResult newGSzombied (modifyFunction ms I)
+								in  Right (newGSidentified, modSlot)
+			Nothing -> Left $ "Error of applying 'revive' to " ++ show i ++ ": invalid proponent slot number."
+
 apply _ _ f c = Left $ "Error of applying " ++ show f ++ " to " ++ show c ++ ": don't know how to apply."
 
 
