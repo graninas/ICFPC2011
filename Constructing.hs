@@ -27,17 +27,17 @@ blankCard x | x == "I"      = I
 			| x == "copy"   = Copy Undef
 			| x == "revive" = Revive Undef
 			| x == "zombie" = Zombie Undef Undef
-blankCard _ = undefined  -- FIX ME: a parse error message.
+			| otherwise     = I
 
 initGameState = GameState (defaultSlotMap 256) (defaultSlotMap 256) Player0 1
 
 playerSlots :: GameState -> Player -> Slots
 playerSlots (GameState propSl opSl _ _) pl | pl == Player0 = propSl
 										   | pl == Player1 = opSl
-playerSlots _ _ = undefined
+--playerSlots _ _ = undefined
 
 otherPlayer Player0 = Player1
 otherPlayer Player1 = Player0
 
 updateSlot i slot slots | isSlotNumberValid i slots = M.update (\x -> Just slot) i slots
-						| otherwise = undefined
+						-- | otherwise = undefined

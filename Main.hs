@@ -13,7 +13,7 @@ import Tests
 applicationType :: String -> ApplicationType
 applicationType "1" = LeftApplication
 applicationType "2" = RightApplication
-applicationType _ = undefined  -- FIX ME: parse error message
+--applicationType _ = undefined  -- FIX ME: parse error message
 
 slotNo = read -- FIX ME: parse error message
 
@@ -61,11 +61,11 @@ evalScheme :: SchemeEvaluating -> SchemeEvaluating
 evalScheme (SchemeEval templIdx templRepCnt plTIdx templates) = 
 	let (cnt, plTurns) = (templates !! templIdx) in
 		case plTIdx + 1 == length plTurns of -- Достигли конца текущего шаблона.
-			True  -> if cnt == -1 || templRepCnt < cnt then SchemeEval templIdx (templRepCnt+1) 0 templates
-					 else case templIdx + 1 == length templates of
-							True  -> SchemeEval 0 0 0 templates
-							False -> SchemeEval (templIdx+1) 0 0 templates
-			False -> SchemeEval templIdx templRepCnt (plTIdx+1) templates
+			True  -> if cnt == -1 || templRepCnt < (cnt - 1) then SchemeEval templIdx (templRepCnt+1) 0 templates
+					 else case templIdx < (length templates) - 1 of
+								False -> undefined --SchemeEval 0 0 0 templates
+								True  -> SchemeEval (templIdx + 1) 0 0 templates
+			False -> SchemeEval templIdx templRepCnt (plTIdx + 1) templates
 
 evalPlayerTurn :: PlayerTurn -> GameState -> (String, GameState)
 evalPlayerTurn (appType, slotNumber, cardName) oldGS@(GameState slots1 slots2 curP t) =

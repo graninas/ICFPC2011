@@ -36,14 +36,14 @@ applyAttack pl j sl@(Slot v f) n | isSlotAlive sl =
 	
 applyKickBack :: Player -> Int -> Slot -> Int -> ModifiedSlot	
 applyKickBack pl i sl@(Slot v f) n | n <= v = (pl, i, Slot (v - n) f)
-								   | otherwise = undefined            -- Probably it cannot to be.
+								   -- | otherwise = undefined            -- Probably it cannot to be.
 
 applyHelp   pl j sl@(Slot v f) n | isSlotAlive sl =
 		let divided = div (n * 11) 10 in
 			if v + divided > 65536 then (pl, j, Slot 65536 f)
 							   else (pl, j, Slot (v + divided) f)
 applyDevote pl i sl@(Slot v f) n | n <= v = (pl, i, Slot (v - n) f)
-								 | otherwise = undefined              -- Probably it cannot to be.
+								 -- | otherwise = undefined              -- Probably it cannot to be.
 
 applyRevive pl i sl@(Slot v f) | v < 0     = (pl, i, Slot 1 f)
 							   | otherwise = (pl, i, sl)
@@ -77,10 +77,10 @@ apply gs ms (Put Undef) _     = applyResult gs (modifyFunction ms I)
 apply gs ms (S Undef g x) arg = applyResult gs (modifyFunction ms (S arg g x))
 apply gs ms (S f Undef x) arg = applyResult gs (modifyFunction ms (S f arg x))
 apply gs ms (S f g Undef) arg = let
-									Right (newGSh, modSlot1@(_, _, (Slot _ h))) = apply gs     ms       f arg				-- Maybe error.
+									Right (newGSh, modSlot1@(_, _, (Slot _ h))) = apply gs     ms       f arg
 									Right (newGSy, modSlot2@(_, _, (Slot _ y))) = apply newGSh modSlot1 g arg
-									Right (newGSz, modSlot3@(_, _, (Slot _ z))) = apply newGSy modSlot2 h y
-								in  Right (newGSz, modSlot3)
+									Left str = apply newGSh modSlot1 g arg
+								in apply newGSy modSlot2 h y
 
 apply gs ms (K Undef y) arg    = applyResult gs (modifyFunction ms (K arg y))
 apply gs ms (K x Undef) _      = applyResult gs (modifyFunction ms x)

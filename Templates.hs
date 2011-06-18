@@ -2,6 +2,9 @@ module Templates where
 
 import Types
 
+defaultNothingTemplate :: Scheme
+defaultNothingTemplate = [(-1, [(1, 0, "I")])]
+
 stupidScheme :: Scheme
 stupidScheme = [
 	(-1, [(2, 0, "zero")])
@@ -11,7 +14,7 @@ infiniteS :: Scheme
 infiniteS = [
 	(-1, [(1, 0, "S")])
 	]
-	
+
 fieldToFieldApp :: Scheme
 fieldToFieldApp = [
 	(1, [
@@ -33,4 +36,5 @@ fieldToFieldApp = [
 	  (1, 0, "K"),
 	  (1, 0, "S"),
 	  (2, 0, "succ"),
-	  (2, 0, "zero")])]
+	  (2, 0, "zero")])
+	 ] ++ defaultNothingTemplate
