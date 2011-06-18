@@ -48,3 +48,15 @@ data GameState = GameState {
 	curPlayer :: Player,
 	turn      :: Int
 } deriving (Eq, Show, Read)
+
+type IntAppType  = Int
+type SlotNumber  = Int
+type CardName    = String
+type PlayerTurn  = (IntAppType, SlotNumber, CardName)
+type PlayerTurns = [PlayerTurn]
+type TemplateRepeatCount = Int
+type Template = (TemplateRepeatCount, PlayerTurns)
+type Scheme   = [Template]
+type TemplateIndex   = Int
+type PlayerTurnIndex = Int
+data SchemeEvaluating = SchemeEval TemplateIndex TemplateRepeatCount PlayerTurnIndex Scheme

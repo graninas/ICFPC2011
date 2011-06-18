@@ -22,3 +22,8 @@ showCurrentPlayerSlots _ slots Player1 = showSlots $ M.toList slots
 
 showGameState :: GameState -> String
 showGameState (GameState slots1 slots2 curP turn) = showTurn turn ++ showPlayer curP ++ showCurrentPlayerSlots slots1 slots2 curP
+
+showPlayerTurn :: PlayerTurn -> String
+showPlayerTurn (1, slNo, card) = "\nLeftApp  (slot = " ++ show slNo ++ ", card = " ++ card
+showPlayerTurn (2, slNo, card) = "\nRightApp (slot = " ++ show slNo ++ ", card = " ++ card
+showPlayerTurn _ = "Unknown app type."
