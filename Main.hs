@@ -16,10 +16,18 @@ applicationType _ = undefined  -- FIX ME: parse error message
 slotNo = read -- FIX ME: parse error message
 
 rightApplication :: GameState -> Int -> Card -> (String, GameState)
-rightApplication curGS@(GameState slots1 slots2 curP turn) slNo card =
-			case M.lookup slNo slots1 of
+rightApplication curGS slNo card =
+			let curP = curPlayer curGS in
+			case M.lookup slNo (playerSlots curGS curP) of
 				Nothing -> ("Invalid argument", curGS)
 				Just slot -> rightApp curGS (curP, slNo, slot) card
+				
+leftApplication :: GameState -> Int -> Card -> (String, GameState)
+leftApplication curGS slNo card =
+			let curP = curPlayer curGS in
+			case M.lookup slNo (playerSlots curGS curP) of
+				Nothing -> ("Invalid argument", curGS)
+				Just slot -> leftApp curGS (curP, slNo, slot) card
 
 run :: GameState -> IO ()
 run oldGS@(GameState slots1 slots2 curP turn) = do
@@ -27,7 +35,14 @@ run oldGS@(GameState slots1 slots2 curP turn) = do
 	putStrLn "(1) apply card to slot, or (2) apply slot to card?"
 	x <- getLine
 	case applicationType x of
-		LeftApplication -> undefined
+		LeftApplication -> do
+			putStrLn "card name?"
+			z <- getLine
+			putStrLn "slot no?"
+			y <- getLine
+			let (str, gs) = leftApplication oldGS (slotNo y) (blankCard z)
+			putStrLn str
+			run $ gs {curPlayer = otherPlayer (curPlayer gs)}
 		RightApplication -> do
 			putStrLn "slot no?"
 			y <- getLine
@@ -35,7 +50,7 @@ run oldGS@(GameState slots1 slots2 curP turn) = do
 			z <- getLine
 			let (str, gs) = rightApplication oldGS (slotNo y) (blankCard z)
 			putStrLn str
-			run gs
+			run $ gs {curPlayer = otherPlayer (curPlayer gs)}
 
 
 

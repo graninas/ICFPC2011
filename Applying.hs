@@ -190,13 +190,10 @@ apply gs@(GameState _ _ pl _) ms (Zombie (FValue i) Undef) f =
 apply _ _ f c = Left $ "Error of applying " ++ show f ++ " to " ++ show c ++ ": don't know how to apply."
 
 
-
-
--- FIX ME: final reducing of the function, may be failed.
 rightApp :: GameState -> ModifiedSlot -> Card -> (String, GameState)
 rightApp gs ms@(pl, _, slot@(Slot vit f)) card | isSlotAlive slot && isFunctionField slot =
 	case apply gs ms f card of
-		Right (newGS, modifiedSlots) -> ("Applying Ok.", newGS)
+		Right (newGS, modifiedSlots) -> ("Right applying Ok.", newGS)
 		Left msg -> case applyResult gs (modifyFunction ms I) of
 						Right (newGS, _) -> (msg, newGS)
 						Left msg2        -> (msg2, gs)
@@ -204,3 +201,13 @@ rightApp gs ms card | otherwise = case applyResult gs (modifyFunction ms I) of
 						Right (newGS, _) -> ("Slot is dead.", newGS)
 						Left msg2        -> (msg2, gs)
 
+leftApp :: GameState -> ModifiedSlot -> Card -> (String, GameState)
+leftApp gs ms@(pl, _, slot@(Slot vit f)) card | isSlotAlive slot && isFunctionField slot =
+	case apply gs ms card f of
+		Right (newGS, modifiedSlots) -> ("Left applying Ok.", newGS)
+		Left msg -> case applyResult gs (modifyFunction ms I) of
+						Right (newGS, _) -> (msg, newGS)
+						Left msg2        -> (msg2, gs)
+leftApp gs ms card | otherwise = case applyResult gs (modifyFunction ms I) of
+						Right (newGS, _) -> ("Slot is dead.", newGS)
+						Left msg2        -> (msg2, gs)
