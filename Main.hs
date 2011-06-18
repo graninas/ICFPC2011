@@ -19,9 +19,7 @@ rightApplication :: GameState -> Int -> Card -> (String, GameState)
 rightApplication curGS@(GameState slots1 slots2 curP turn) slNo card =
 			case M.lookup slNo slots1 of
 				Nothing -> ("Invalid argument", curGS)
-				Just slot -> case rightApp curGS (curP, slNo, slot) card of
-					Right newGameState -> ("All ok.", newGameState)
-					Left str -> (str, curGS)
+				Just slot -> rightApp curGS (curP, slNo, slot) card
 
 run :: GameState -> IO ()
 run oldGS@(GameState slots1 slots2 curP turn) = do

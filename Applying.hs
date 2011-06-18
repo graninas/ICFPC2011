@@ -193,36 +193,14 @@ apply _ _ f c = Left $ "Error of applying " ++ show f ++ " to " ++ show c ++ ": 
 
 
 -- FIX ME: final reducing of the function, may be failed.
-rightApp' :: GameState -> ModifiedSlot -> Card -> Either String GameState
-rightApp' gs ms@(pl, i, (Slot vit f)) card = apply gs ms f card >>= \(newGS, modifiedSlots) -> Right newGS
+rightApp :: GameState -> ModifiedSlot -> Card -> (String, GameState)
+rightApp gs ms@(pl, _, slot@(Slot vit f)) card | isSlotAlive slot && isFunctionField slot =
+	case apply gs ms f card of
+		Right (newGS, modifiedSlots) -> ("Applying Ok.", newGS)
+		Left msg -> case applyResult gs (modifyFunction ms I) of
+						Right (newGS, _) -> (msg, newGS)
+						Left msg2        -> (msg2, gs)
+rightApp gs ms card | otherwise = case applyResult gs (modifyFunction ms I) of
+						Right (newGS, _) -> ("Slot is dead.", newGS)
+						Left msg2        -> (msg2, gs)
 
--- FIX ME: function to I if some error.
-rightApp :: GameState -> ModifiedSlot -> Card -> Either String GameState
-rightApp gs ms@(pl, i, slot) card | isSlotAlive slot && isFunctionField slot = rightApp' gs ms card
-rightApp _ _ _ = Left "rightApp failed."
-
-{-
-			| S FieldFunction FieldFunction FieldFunction
-			| K FieldFunction FieldFunction
-			| Inc FieldFunction
-			| Dec FieldFunction
-			| Attack FieldFunction FieldFunction FieldFunction
-			| Help FieldFunction FieldFunction FieldFunction
-			| Copy FieldFunction
-			| Revive FieldFunction
-			| Zombie FieldFunction FieldFunction
-			| FValue Int
-			
-updateSlots
-{propSlots = updateSlot i (Slot v I) (updateSlot spI spSlot slots)}  -- We need to update 2 slots if we have functions like 'inc'.
-
-applyResult :: GameState -> Slots -> Int -> Slot -> Function -> Either String GameState
-
-applyResult gs(GameState slots _ curP _) curPSlots i (Slot v _) (SpecFuncSaveSlot Player0 spI spSlot) =
-				Right $ updateSlots curP curPSlots 
-				
-applyResult gs(GameState _ slots _ _) i (Slot v _) (SpecFuncSaveSlot Player1 spI spSlot) =
-				Right $ gs {opSlots   = updateSlot i (Slot v I) (updateSlot spI spSlot slots)}  -- We need to update 2 slots if we have functions like 'inc'.
-				
-applyResult gs(GameState slots _ Player0 _) i sl func = Right $ gs {}
--}
