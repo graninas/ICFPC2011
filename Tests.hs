@@ -16,7 +16,7 @@ isSlotNumberValid :: Int -> Slots -> Bool
 isSlotNumberValid = M.member
 
 isSlotAlive :: Slot -> Bool
-isSlotAlive (Slot v _) = isVitalityValid v && v > 0
+isSlotAlive (Slot v _) = v > 0 && v <= 65535
 
 isFunctionField :: Slot -> Bool
 isFunctionField (Slot _ (FValue _)) = False

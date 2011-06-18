@@ -7,6 +7,7 @@ import Showing
 import Constructing
 import Applying
 import Templates
+import Tests
 
 
 applicationType :: String -> ApplicationType
@@ -110,3 +111,4 @@ main :: IO ()
 main = do 
 	putStrLn "Lambda: The Gathering"
 	run "alt" initGameState
+
