@@ -14,9 +14,29 @@ applyResult gs@(GameState _ slots _ _) ms@(Player1, i, sl) = Right $ (gs {opSlot
 modifyFunction :: ModifiedSlot -> Function -> ModifiedSlot
 modifyFunction (pl, i, (Slot v _)) newF = (pl, i, (Slot v newF))
 
+-- Может случиться, что функциями inc, attack и подобными мы изменили vitality слота, где выполняем функцию. Это необходимо учесть.
+modifyMaybeThisSlot :: ModifiedSlot -> ModifiedSlot -> Function -> ModifiedSlot
+modifyMaybeThisSlot mbThisSl@(pl1, i1, (Slot v1 _)) realSl@(pl, i, (Slot v _)) newF
+		| i1 == i   = (pl, i, (Slot v1 newF))
+		| otherwise = (pl, i, (Slot v  newF))
+
 applyInc :: Player -> Int -> Slot -> ModifiedSlot
 applyInc pl i (Slot v f) | v > 0 && v < 65535 = (pl, i, Slot (v + 1) f)
 applyInc pl i (Slot v f) | otherwise          = (pl, i, Slot v       f)
+
+applyDec :: Player -> Int -> Slot -> ModifiedSlot
+applyDec pl i (Slot v f) | v > 0     = (pl, i, Slot (v - 1) f)
+applyDec pl i (Slot v f) | otherwise = (pl, i, Slot v       f)
+
+applyAttack :: Player -> Int -> Slot -> Int -> ModifiedSlot
+applyAttack pl j sl@(Slot v f) n | isSlotAlive sl =
+		let divided = div (n * 9) 10 in
+			if v - divided < 0 then (pl, j, Slot 0 f)
+							   else (pl, j, Slot (v - divided) f)
+	
+applyKickBack :: Player -> Int -> Slot -> Int -> ModifiedSlot	
+applyKickBack pl i sl@(Slot v f) n | n <= v = (pl, i, Slot (v - n) f)
+								   | otherwise = undefined            -- Probably it cannot to be.
 
 apply :: GameState -> ModifiedSlot -> Function -> Function -> Either String ApplicationResult
 apply gs ms (I) f = applyResult gs (modifyFunction ms f)
@@ -51,22 +71,61 @@ apply gs ms (S f g Undef) arg = let
 
 apply gs ms (K Undef y) arg    = applyResult gs (modifyFunction ms (K arg y))
 apply gs ms (K x Undef) _      = applyResult gs (modifyFunction ms x)
-apply gs ms (Inc Undef) (Zero) = apply gs ms (Inc Undef) (FValue 0)
 
+-- inc app
+apply gs                      ms (Inc Undef) (Zero)     = apply gs ms (Inc Undef) (FValue 0)
 apply gs@(GameState _ _ pl _) ms (Inc Undef) (FValue i) =
 		case M.lookup i (playerSlots gs pl) of
 			Just slotToInc -> let
-								 Right (newGSincremented, _)      = applyResult gs (applyInc pl i slotToInc)
-								 Right (newGSidentified, modSlot) = applyResult newGSincremented (modifyFunction ms I)
+								 Right (newGSincremented, incrModSlot) = applyResult gs (applyInc pl i slotToInc)
+								 Right (newGSidentified, modSlot)      = applyResult newGSincremented (modifyMaybeThisSlot incrModSlot ms I)
 							  in Right (newGSidentified, modSlot)
 			Nothing        -> Left $ "Error of applying 'inc' to " ++ show i ++ ": invalid slot number."
 
+-- dec app
+apply gs                      ms (Dec Undef) (Zero)     = apply gs ms (Dec Undef) (FValue 0)
+apply gs@(GameState _ _ pl _) ms (Dec Undef) (FValue i) =
+		let otherP = otherPlayer pl in
+		case M.lookup (255 - i) (playerSlots gs otherP) of
+			Just slotToDec -> let
+								 Right (newGSdecremented, decrModSlot) = applyResult gs (applyDec otherP i slotToDec)
+								 Right (newGSidentified, modSlot)      = applyResult newGSdecremented (modifyMaybeThisSlot decrModSlot ms I)
+							  in Right (newGSidentified, modSlot)
+			Nothing        -> Left $ "Error of applying 'dec' to " ++ show i ++ ": invalid slot number."
+
+-- attack
+apply gs ms (Attack Undef j n) (Zero)         = applyResult gs (modifyFunction ms (Attack (FValue 0) j n))
+apply gs ms (Attack Undef j n) val@(FValue _) = applyResult gs (modifyFunction ms (Attack val j n))
+apply gs ms (Attack i Undef n) (Zero)         = applyResult gs (modifyFunction ms (Attack i (FValue 0) n))
+apply gs ms (Attack i Undef n) val@(FValue _) = applyResult gs (modifyFunction ms (Attack i val n))
+
+apply gs@(GameState _ _ pl _) ms f@(Attack i j Undef) (Zero)   = apply gs ms f (FValue 0)
+apply gs@(GameState _ _ pl _) ms   (Attack (FValue i) (FValue j) Undef) (FValue n) =
+		let otherP = otherPlayer pl in
+		case M.lookup (255 - j) (playerSlots gs otherP) of
+			Just slotToAttack ->
+				case M.lookup i (playerSlots gs pl) of
+					Just slotToKickBack@(Slot v _) ->
+						case n <= v of
+							True -> let
+										 Right (newGSattacked, _)              = applyResult gs              (applyAttack   otherP j slotToAttack   n)
+										 Right (newGSkickedBack, kickedBackMS) = applyResult newGSattacked   (applyKickBack pl     i slotToKickBack n)
+										 Right (newGSidentified, modSlot)      = applyResult newGSkickedBack (modifyMaybeThisSlot kickedBackMS ms I)
+									in Right (newGSidentified, modSlot)
+							False -> Left $ "Error of applying 'attack' to " ++ show i ++ ": n > v."
+					Nothing -> Left $ "Error of applying 'attack' to " ++ show i ++ ": invalid proponent slot number."
+			Nothing -> Left $ "Error of applying 'attack' to " ++ show j ++ ": invalid opponent slot number."
+			
+			
+			
+			
 apply _ _ f c = Left $ "Error of applying " ++ show f ++ " to " ++ show c ++ ": don't know how to apply."
 
 -- FIX ME: final reducing of the function, may be failed.
 rightApp' :: GameState -> ModifiedSlot -> Card -> Either String GameState
 rightApp' gs ms@(pl, i, (Slot vit f)) card = apply gs ms f card >>= \(newGS, modifiedSlots) -> Right newGS
 
+-- FIX ME: function to I if some error.
 rightApp :: GameState -> ModifiedSlot -> Card -> Either String GameState
 rightApp gs ms@(pl, i, slot) card | isSlotAlive slot && isFunctionField slot = rightApp' gs ms card
 rightApp _ _ _ = Left "rightApp failed."
