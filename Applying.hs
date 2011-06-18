@@ -16,8 +16,8 @@ modifyFunction (pl, i, (Slot v _)) newF = (pl, i, (Slot v newF))
 
 -- Может случиться, что функциями inc, attack и подобными мы изменили vitality слота, где выполняем функцию. Это необходимо учесть.
 modifyMaybeThisSlot :: ModifiedSlot -> ModifiedSlot -> Function -> ModifiedSlot
-modifyMaybeThisSlot mbThisSl@(pl1, i1, (Slot v1 _)) realSl@(pl, i, (Slot v _)) newF
-		| i1 == i   = (pl, i, (Slot v1 newF))
+modifyMaybeThisSlot  mbThisSl@(pl1, i1, (Slot v1 _)) realSl@(pl, i, (Slot v _)) newF
+		| i1 == i   = (pl, i, (Slot v  newF))
 		| otherwise = (pl, i, (Slot v  newF))
 
 applyInc :: Player -> Int -> Slot -> ModifiedSlot
@@ -121,10 +121,10 @@ apply gs@(GameState _ _ pl _) ms   (Attack (FValue i) (FValue j) Undef) (FValue 
 					Just slotToKickBack@(Slot v _) ->
 						case n <= v of
 							True -> let
-										 Right (newGSattacked, _)              = applyResult gs              (applyAttack   otherP j slotToAttack   n)
-										 Right (newGSkickedBack, kickedBackMS) = applyResult newGSattacked   (applyKickBack pl     i slotToKickBack n)
-										 Right (newGSidentified, modSlot)      = applyResult newGSkickedBack (modifyMaybeThisSlot kickedBackMS ms I)
-									in Right (newGSidentified, modSlot)
+										 Right (newGSidentified, modSlot)      = applyResult gs              (modifyFunction ms I)
+										 Right (newGSattacked, _)              = applyResult newGSidentified (applyAttack   otherP j slotToAttack   n)
+										 Right (newGSkickedBack, kickedBackMS) = applyResult newGSattacked   (modifyMaybeThisSlot modSlot (applyKickBack pl i slotToKickBack n) I)
+									in Right (newGSkickedBack, kickedBackMS)
 							False -> Left $ "Error of applying 'attack' to " ++ show i ++ ": n > v."
 					Nothing -> Left $ "Error of applying 'attack' to " ++ show i ++ ": invalid proponent slot number."
 			Nothing -> Left $ "Error of applying 'attack' to " ++ show j ++ ": invalid opponent slot number."
@@ -144,10 +144,10 @@ apply gs@(GameState _ _ pl _) ms   (Help (FValue i) (FValue j) Undef) (FValue n)
 					Just slotToHelp@(Slot helpV helpF) ->
 						case n <= v of
 							True -> let
-										 Right (newGSdevoted, devotedMS)  = applyResult gs           (applyDevote pl i slotToDevote n)
-										 Right (newGShelped, helpedMS)    = applyResult newGSdevoted (modifyMaybeThisSlot devotedMS (applyHelp pl j slotToHelp n) helpF)
-										 Right (newGSidentified, modSlot) = applyResult newGShelped  (modifyMaybeThisSlot helpedMS ms I)
-									in Right (newGSidentified, modSlot)
+										 Right (newGSidentified, modSlot) = applyResult gs              (modifyFunction ms I)
+										 Right (newGSdevoted, devotedMS)  = applyResult newGSidentified (modifyMaybeThisSlot modSlot   (applyDevote pl i slotToDevote n) I)
+										 Right (newGShelped,  helpedMS)   = applyResult newGSdevoted    (modifyMaybeThisSlot devotedMS (applyHelp pl j slotToHelp n) helpF)
+									in Right (newGShelped, helpedMS)
 							False -> Left $ "Error of applying 'help' to " ++ show i ++ ": n > v."
 					Nothing -> Left $ "Error of applying 'help' to " ++ show j ++ ": invalid proponent slot number."
 			Nothing -> Left $ "Error of applying 'help' to " ++ show i ++ ": invalid proponent slot number."
@@ -167,12 +167,12 @@ apply gs@(GameState _ _ pl _) ms (Revive Undef) (FValue i) =
 		case M.lookup i plSlots of
 			Just slotToRevive@(Slot _ f) ->
 								let
-									Right (newGSrevived, revivedMS)  = applyResult gs           (applyRevive pl i slotToRevive)
-									Right (newGSidentified, modSlot) = applyResult newGSrevived (modifyMaybeThisSlot revivedMS ms I)
-								in  Right (newGSidentified, modSlot)
+									Right (newGSidentified, modSlot) = applyResult newGSrevived (modifyFunction ms I)
+									Right (newGSrevived, revivedMS)  = applyResult gs           (modifyMaybeThisSlot modSlot (applyRevive pl i slotToRevive) I)
+								in  Right (newGSrevived, revivedMS)
 			Nothing -> Left $ "Error of applying 'revive' to " ++ show i ++ ": invalid proponent slot number."
 
-apply gs ms (Zombie Undef x) (Zero)     = applyResult gs (modifyFunction ms (Zombie (FValue 0) x))
+apply gs ms (Zombie Undef x) (Zero)         = applyResult gs (modifyFunction ms (Zombie (FValue 0) x))
 apply gs ms (Zombie Undef x) val@(FValue i) = applyResult gs (modifyFunction ms (Zombie val x))
 apply gs@(GameState _ _ pl _) ms (Zombie (FValue i) Undef) f = 
 		let
