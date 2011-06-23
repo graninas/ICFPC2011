@@ -1,0 +1,6 @@
+Code for ICFPC 2011 "Lambda: The Gathering".
+
+Game engine, "for-fun" version.
+
+Not ideal, has some errors (for example, an error in autoapplying stage). In "zombie" mode cards' behaviour not valid.
+Has no bot, but there is mechanisms for move templates and move testing.
