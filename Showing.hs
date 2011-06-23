@@ -38,7 +38,7 @@ showSlots ((n, Slot v f):xs) = "\n" ++ show n ++ "={" ++ show v ++ "," ++ showFu
 
 showCurrentPlayerSlots slots _ Player0 = showSlots $ M.toList slots
 showCurrentPlayerSlots _ slots Player1 = showSlots $ M.toList slots
-
+showPlayerSlots pl gs = showSlots . M.toList $(playerSlots gs pl)
 
 showGameState :: GameState -> String
 showGameState (GameState slots1 slots2 curP turn) = showTurn turn ++ showPlayer curP ++ showCurrentPlayerSlots slots1 slots2 curP

@@ -32,6 +32,7 @@ data Slot = Slot Vitality Field
 type Card = Function
 
 data ApplicationType = LeftApplication | RightApplication
+type AppErrors = [String]
 
 type Slots = M.Map Int Slot
 

@@ -5,9 +5,17 @@ import Tests
 
 import qualified Data.Map as M
 
+appLimit :: Int
+appLimit = 1000
+appLimitStartValue :: Int
+appLimitStartValue = 1
+devaultVitality = 10000
+defaultSlotCount = 256
+
 slot :: Vitality -> Field -> Slot
 slot v f = Slot v f
-defaultSlot = slot 10000 I
+defaultSlot = slot devaultVitality I
+--defaultSlot = slot (-1) (S ( S ( K (Inc Undef) Undef ) (K Zero Undef) Undef ) ( S ( K (Inc Undef) Undef ) (K Zero Undef) Undef ) Undef)
 
 defaultSlotList n = zip ([0..n-1]) (replicate n defaultSlot)
 defaultSlotMap  n = M.fromList $ defaultSlotList n
@@ -29,7 +37,7 @@ blankCard x | x == "I"      = I
 			| x == "zombie" = Zombie Undef Undef
 			| otherwise     = I
 
-initGameState = GameState (defaultSlotMap 256) (defaultSlotMap 256) Player0 1
+initGameState = GameState (defaultSlotMap defaultSlotCount) (defaultSlotMap defaultSlotCount) Player0 1
 
 playerSlots :: GameState -> Player -> Slots
 playerSlots (GameState propSl opSl _ _) pl | pl == Player0 = propSl
@@ -41,3 +49,20 @@ otherPlayer Player1 = Player0
 
 updateSlot i slot slots | isSlotNumberValid i slots = M.update (\x -> Just slot) i slots
 						-- | otherwise = undefined
+
+						
+i = "I"
+zero = "zero"
+succc = "succ"
+dbl  = "dbl"
+get  = "get"
+put  = "put"
+s = "S"
+k = "K"
+inc = "inc"
+dec = "dec"
+attack = "attack"
+help = "help"
+copy = "copy"
+revive = "revive"
+zombie = "zombie"

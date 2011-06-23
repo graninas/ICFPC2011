@@ -14,11 +14,14 @@ applyResult gs@(GameState _ slots _ _) ms@(Player1, i, sl) = Right $ (gs {opSlot
 modifyFunction :: ModifiedSlot -> Function -> ModifiedSlot
 modifyFunction (pl, i, (Slot v _)) newF = (pl, i, (Slot v newF))
 
--- Может случиться, что функциями inc, attack и подобными мы изменили vitality слота, где выполняем функцию. Это необходимо учесть.
-modifyMaybeThisSlot :: ModifiedSlot -> ModifiedSlot -> Function -> ModifiedSlot
-modifyMaybeThisSlot  mbThisSl@(pl1, i1, (Slot v1 _)) realSl@(pl, i, (Slot v _)) newF
-		| i1 == i   = (pl, i, (Slot v  newF))
-		| otherwise = (pl, i, (Slot v  newF))
+getRealSlot :: ModifiedSlot -> ModifiedSlot -> ModifiedSlot
+getRealSlot ms@(pl1, slIdx1, sl1@(Slot v1 _)) mbThis@(pl2, slIdx2, sl2@(Slot v2 _))
+		| pl1 == pl2 && slIdx1 == slIdx2 = mbThis
+		| otherwise = ms
+
+identifyFunction :: ModifiedSlot -> ModifiedSlot -> ModifiedSlot
+identifyFunction ms@(pl1, slIdx1, sl1@(Slot v1 _)) mbThis@(pl2, slIdx2, sl2@(Slot v2 _)) | pl1 == pl2 && slIdx1 == slIdx2 = (pl1, slIdx1, (Slot v2 I))
+																						 | otherwise = (pl1, slIdx1, (Slot v1 I))
 
 applyInc :: Player -> Int -> Slot -> ModifiedSlot
 applyInc pl i (Slot v f) | v > 0 && v < 65535 = (pl, i, Slot (v + 1) f)
@@ -42,77 +45,83 @@ applyHelp   pl j sl@(Slot v f) n | isSlotAlive sl =
 		let divided = div (n * 11) 10 in
 			if v + divided > 65536 then (pl, j, Slot 65536 f)
 							   else (pl, j, Slot (v + divided) f)
+
 applyDevote pl i sl@(Slot v f) n | n <= v = (pl, i, Slot (v - n) f)
 								 -- | otherwise = undefined              -- Probably it cannot to be.
 
-applyRevive pl i sl@(Slot v f) | v < 0     = (pl, i, Slot 1 f)
+applyRevive pl i sl@(Slot v f) | v < 0     = (pl, i, Slot 1 I)
 							   | otherwise = (pl, i, sl)
 
-applyZombie pl i sl f | not $ isSlotAlive $ sl = (pl, i, Slot (-1) f)
+applyZombie pl i sl f | not $ isSlotAlive $ sl = (pl, i, Slot (-1) I)
 					  | otherwise = (pl, i, sl)
 							   
-apply :: GameState -> ModifiedSlot -> Function -> Function -> Either String ApplicationResult
-apply gs ms (I)          f      = applyResult gs (modifyFunction ms f)
-apply gs ms (Succ Undef) (Zero) = applyResult gs (modifyFunction ms (FValue 1))
-apply gs ms (Succ Undef) (FValue n)  | n < 65535 = applyResult gs (modifyFunction ms (FValue $ n+1))
-							        | otherwise  = applyResult gs (modifyFunction ms (FValue 65535))
+apply :: Int -> GameState -> ModifiedSlot -> Function -> Function -> Either String ApplicationResult
+-- I app
+apply appCnt gs ms I f | appCnt <= appLimit = applyResult gs (modifyFunction ms f)
 
-apply gs ms (Dbl Undef) (Zero)     = applyResult gs (modifyFunction ms (FValue 0))
-apply gs ms (Dbl Undef) (FValue n)  | n < 32768 = applyResult gs (modifyFunction ms (FValue (n * 2)))
-							        | otherwise = applyResult gs (modifyFunction ms (FValue 65535))
+-- succ app
+apply appCnt gs ms (Succ Undef) (Zero)      | appCnt <= appLimit = applyResult gs (modifyFunction ms (FValue 1))
+apply appCnt gs ms (Succ Undef) (FValue n)  | n < 65535 && appCnt <= appLimit = applyResult gs (modifyFunction ms (FValue $ n+1))
+							                | n >= 65535  = applyResult gs (modifyFunction ms (FValue 65535))
 
-apply gs ms (Get Undef) (Zero) = apply gs ms (Get Undef) (FValue 0)
-apply gs ms (Get Undef) (FValue i) =
-		case M.lookup i (propSlots gs) of
-			Just slot -> case isSlotAlive slot of
-								True  -> case slot of
-									(Slot v Zero) -> applyResult gs (modifyFunction ms Zero)
-									(Slot v val@(FValue _)) -> applyResult gs (modifyFunction ms val)
-									_ -> Left $ "Error of applying 'get' to " ++ show i ++ ": slot " ++ show i ++ " not a value."
+-- dbl app
+apply appCnt gs ms (Dbl Undef) (Zero)      | appCnt <= appLimit = applyResult gs (modifyFunction ms (FValue 0))
+apply appCnt gs ms (Dbl Undef) (FValue n)  | n < 32768 && appCnt <= appLimit  = applyResult gs (modifyFunction ms (FValue (n * 2)))
+							               | n >= 65535 = applyResult gs (modifyFunction ms (FValue 65535))
+
+-- get app
+apply appCnt gs ms (Get Undef) (Zero) | appCnt <= appLimit = apply (appCnt+1) gs ms (Get Undef) (FValue 0)
+apply appCnt gs@(GameState _ _ pl _) ms (Get Undef) (FValue i) | appCnt <= appLimit =
+		case M.lookup i (playerSlots gs pl) of
+			Just slot@(Slot v f) -> case isSlotAlive slot of
+								True  -> applyResult gs (modifyFunction ms f)
 								False -> Left $ "Error of applying 'get' to " ++ show i ++ ": slot " ++ show i ++ " is dead."
 			Nothing -> Left $ "Error of applying 'get' to " ++ show i ++ ": invalid slot number."
 
-apply gs ms (Put Undef) _     = applyResult gs (modifyFunction ms I)
+-- put app
+apply appCnt gs ms (Put Undef) _     | appCnt <= appLimit = applyResult gs (modifyFunction ms I)
 
-apply gs ms (S Undef g x) arg = applyResult gs (modifyFunction ms (S arg g x))
-apply gs ms (S f Undef x) arg = applyResult gs (modifyFunction ms (S f arg x))
-apply gs ms (S f g Undef) arg = let
-									Right (newGSh, modSlot1@(_, _, (Slot _ h))) = apply gs     ms       f arg
-									Right (newGSy, modSlot2@(_, _, (Slot _ y))) = apply newGSh modSlot1 g arg
-								in apply newGSy modSlot2 h y
+-- S app
+apply appCnt gs ms (S Undef g x) arg | appCnt <= appLimit = applyResult gs (modifyFunction ms (S arg g x))
+apply appCnt gs ms (S f Undef x) arg | appCnt <= appLimit = applyResult gs (modifyFunction ms (S f arg x))
+apply appCnt gs ms (S f g Undef) arg | appCnt <= appLimit = let
+									Right (newGSh, modSlot1@(_, _, (Slot _ h))) = apply (appCnt+1) gs     ms       f arg
+									Right (newGSy, modSlot2@(_, _, (Slot _ y))) = apply (appCnt+2) newGSh modSlot1 g arg
+								in apply (appCnt+3) newGSy modSlot2 h y
 
-apply gs ms (K Undef y) arg    = applyResult gs (modifyFunction ms (K arg y))
-apply gs ms (K x Undef) _      = applyResult gs (modifyFunction ms x)
+-- K app
+apply appCnt gs ms (K Undef y) arg    | appCnt <= appLimit = applyResult gs (modifyFunction ms (K arg y))
+apply appCnt gs ms (K x Undef) _      | appCnt <= appLimit = applyResult gs (modifyFunction ms x)
 
 -- inc app
-apply gs                      ms (Inc Undef) (Zero)     = apply gs ms (Inc Undef) (FValue 0)
-apply gs@(GameState _ _ pl _) ms (Inc Undef) (FValue i) =
+apply appCnt gs                      ms (Inc Undef) (Zero)     | appCnt <= appLimit = apply (appCnt+1) gs ms (Inc Undef) (FValue 0)
+apply appCnt gs@(GameState _ _ pl _) ms (Inc Undef) (FValue i) | appCnt <= appLimit =
 		case M.lookup i (playerSlots gs pl) of
 			Just slotToInc -> let
 								 Right (newGSincremented, incrModSlot) = applyResult gs (applyInc pl i slotToInc)
-								 Right (newGSidentified, modSlot)      = applyResult newGSincremented (modifyMaybeThisSlot incrModSlot ms I)
+								 Right (newGSidentified, modSlot)      = applyResult gs (identifyFunction ms incrModSlot)
 							  in Right (newGSidentified, modSlot)
 			Nothing        -> Left $ "Error of applying 'inc' to " ++ show i ++ ": invalid slot number."
 
 -- dec app
-apply gs                      ms (Dec Undef) (Zero)     = apply gs ms (Dec Undef) (FValue 0)
-apply gs@(GameState _ _ pl _) ms (Dec Undef) (FValue i) =
+apply appCnt gs                      ms (Dec Undef) (Zero)     | appCnt <= appLimit = apply (appCnt+1) gs ms (Dec Undef) (FValue 0)
+apply appCnt gs@(GameState _ _ pl _) ms (Dec Undef) (FValue i) | appCnt <= appLimit =
 		let otherP = otherPlayer pl in
 		case M.lookup (255 - i) (playerSlots gs otherP) of
 			Just slotToDec -> let
-								 Right (newGSdecremented, decrModSlot) = applyResult gs (applyDec otherP i slotToDec)
-								 Right (newGSidentified, modSlot)      = applyResult newGSdecremented (modifyMaybeThisSlot decrModSlot ms I)
+								 Right (newGSdecremented, decrModSlot) = applyResult gs (applyDec otherP (255 - i) slotToDec)
+								 Right (newGSidentified, modSlot)      = applyResult newGSdecremented (identifyFunction ms decrModSlot)
 							  in Right (newGSidentified, modSlot)
 			Nothing        -> Left $ "Error of applying 'dec' to " ++ show i ++ ": invalid slot number."
 
--- attack
-apply gs ms (Attack Undef j n) (Zero)         = applyResult gs (modifyFunction ms (Attack (FValue 0) j n))
-apply gs ms (Attack Undef j n) val@(FValue _) = applyResult gs (modifyFunction ms (Attack val j n))
-apply gs ms (Attack i Undef n) (Zero)         = applyResult gs (modifyFunction ms (Attack i (FValue 0) n))
-apply gs ms (Attack i Undef n) val@(FValue _) = applyResult gs (modifyFunction ms (Attack i val n))
-apply gs ms f@(Attack i j Undef) (Zero)       = apply gs ms f (FValue 0)
+-- attack app
+apply appCnt gs ms (Attack Undef j n) (Zero)         | appCnt <= appLimit = applyResult gs (modifyFunction ms (Attack (FValue 0) j n))
+apply appCnt gs ms (Attack Undef j n) val@(FValue _) | appCnt <= appLimit = applyResult gs (modifyFunction ms (Attack val j n))
+apply appCnt gs ms (Attack i Undef n) (Zero)         | appCnt <= appLimit = applyResult gs (modifyFunction ms (Attack i (FValue 0) n))
+apply appCnt gs ms (Attack i Undef n) val@(FValue _) | appCnt <= appLimit = applyResult gs (modifyFunction ms (Attack i val n))
+apply appCnt gs ms f@(Attack i j Undef) (Zero)       | appCnt <= appLimit = apply (appCnt+1) gs ms f (FValue 0)
 
-apply gs@(GameState _ _ pl _) ms   (Attack (FValue i) (FValue j) Undef) (FValue n) =
+apply appCnt gs@(GameState _ _ pl _) ms   (Attack (FValue i) (FValue j) Undef) (FValue n) | appCnt <= appLimit =
 		let otherP = otherPlayer pl in
 		case M.lookup (255 - j) (playerSlots gs otherP) of
 			Just slotToAttack ->
@@ -120,60 +129,62 @@ apply gs@(GameState _ _ pl _) ms   (Attack (FValue i) (FValue j) Undef) (FValue 
 					Just slotToKickBack@(Slot v _) ->
 						case n <= v of
 							True -> let
-										 Right (newGSidentified, modSlot)      = applyResult gs              (modifyFunction ms I)
-										 Right (newGSattacked, _)              = applyResult newGSidentified (applyAttack   otherP j slotToAttack   n)
-										 Right (newGSkickedBack, kickedBackMS) = applyResult newGSattacked   (modifyMaybeThisSlot modSlot (applyKickBack pl i slotToKickBack n) I)
-									in Right (newGSkickedBack, kickedBackMS)
+										 Right (newGSattacked, _)              = applyResult gs (applyAttack otherP (255 - j) slotToAttack n)
+										 Right (newGSkickedBack, kickedBackMS) = applyResult newGSattacked   (applyKickBack pl i slotToKickBack n)
+										 Right (newGSidentified, modSlot)      = applyResult newGSkickedBack (identifyFunction ms kickedBackMS)
+									in Right (newGSidentified, modSlot)
 							False -> Left $ "Error of applying 'attack' to " ++ show i ++ ": n > v."
 					Nothing -> Left $ "Error of applying 'attack' to " ++ show i ++ ": invalid proponent slot number."
-			Nothing -> Left $ "Error of applying 'attack' to " ++ show j ++ ": invalid opponent slot number."
+			Nothing -> Left $ "Error of applying 'attack' to " ++ show (255 - j) ++ ": invalid opponent slot number."
 
--- help
-apply gs ms (Help Undef j n) (Zero)         = applyResult gs (modifyFunction ms (Help (FValue 0) j n))
-apply gs ms (Help Undef j n) val@(FValue _) = applyResult gs (modifyFunction ms (Help val j n))
-apply gs ms (Help i Undef n) (Zero)         = applyResult gs (modifyFunction ms (Help i (FValue 0) n))
-apply gs ms (Help i Undef n) val@(FValue _) = applyResult gs (modifyFunction ms (Help i val n))
+-- help app
+apply appCnt gs ms (Help Undef j n) (Zero)         | appCnt <= appLimit = applyResult gs (modifyFunction ms (Help (FValue 0) j n))
+apply appCnt gs ms (Help Undef j n) val@(FValue _) | appCnt <= appLimit = applyResult gs (modifyFunction ms (Help val j n))
+apply appCnt gs ms (Help i Undef n) (Zero)         | appCnt <= appLimit = applyResult gs (modifyFunction ms (Help i (FValue 0) n))
+apply appCnt gs ms (Help i Undef n) val@(FValue _) | appCnt <= appLimit = applyResult gs (modifyFunction ms (Help i val n))
 
-apply gs@(GameState _ _ pl _) ms f@(Help i j Undef) (Zero)   = apply gs ms f (FValue 0)
-apply gs@(GameState _ _ pl _) ms   (Help (FValue i) (FValue j) Undef) (FValue n) =
+apply appCnt gs@(GameState _ _ pl _) ms f@(Help i j Undef) (Zero)   | appCnt <= appLimit = apply (appCnt+1) gs ms f (FValue 0)
+apply appCnt gs@(GameState _ _ pl _) ms   (Help (FValue i) (FValue j) Undef) (FValue n) | appCnt <= appLimit =
 		let plSlots = playerSlots gs pl in
 		case M.lookup i plSlots of
 			Just slotToDevote@(Slot v _) ->
 				case M.lookup j plSlots of
 					Just slotToHelp@(Slot helpV helpF) ->
-						case n <= v of
+						case n <= v && isSlotAlive slotToHelp of
 							True -> let
-										 Right (newGSidentified, modSlot) = applyResult gs              (modifyFunction ms I)
-										 Right (newGSdevoted, devotedMS)  = applyResult newGSidentified (modifyMaybeThisSlot modSlot   (applyDevote pl i slotToDevote n) I)
-										 Right (newGShelped,  helpedMS)   = applyResult newGSdevoted    (modifyMaybeThisSlot devotedMS (applyHelp pl j slotToHelp n) helpF)
-									in Right (newGShelped, helpedMS)
+										 Right (newGSdevoted, devotedMS)  = applyResult gs (applyDevote pl i slotToDevote n)
+										 (_, _, realSlotToHelp) = getRealSlot (pl, j, slotToHelp) devotedMS
+										 Right (newGShelped,  helpedMS)   = applyResult newGSdevoted    (applyHelp pl j realSlotToHelp n)
+										 Right (newGSidentified, modSlot) = applyResult newGShelped     (identifyFunction ms (getRealSlot (getRealSlot ms devotedMS) helpedMS))
+									in Right (newGSidentified, modSlot)
 							False -> Left $ "Error of applying 'help' to " ++ show i ++ ": n > v."
 					Nothing -> Left $ "Error of applying 'help' to " ++ show j ++ ": invalid proponent slot number."
 			Nothing -> Left $ "Error of applying 'help' to " ++ show i ++ ": invalid proponent slot number."
 
--- copy
-apply gs                      ms (Copy Undef) (Zero)     = apply gs ms (Copy Undef) (FValue 0)
-apply gs@(GameState _ _ pl _) ms (Copy Undef) (FValue i) =
+-- copy app
+apply appCnt gs                      ms (Copy Undef) (Zero)     | appCnt <= appLimit = apply (appCnt+1) gs ms (Copy Undef) (FValue 0)
+apply appCnt gs@(GameState _ _ pl _) ms (Copy Undef) (FValue i) | appCnt <= appLimit =
 		let otherPlSlots = playerSlots gs (otherPlayer pl) in
 		case M.lookup i otherPlSlots of
 			Just (Slot _ f) -> applyResult gs (modifyFunction ms f)
 			Nothing -> Left $ "Error of applying 'copy' to " ++ show i ++ ": invalid opponent slot number."
 			
--- revive
-apply gs                      ms (Revive Undef) (Zero)     = apply gs ms (Revive Undef) (FValue 0)
-apply gs@(GameState _ _ pl _) ms (Revive Undef) (FValue i) =
+-- revive app
+apply appCnt gs                      ms (Revive Undef) (Zero)     | appCnt <= appLimit = apply (appCnt+1) gs ms (Revive Undef) (FValue 0)
+apply appCnt gs@(GameState _ _ pl _) ms (Revive Undef) (FValue i) | appCnt <= appLimit =
 		let plSlots = playerSlots gs pl in
 		case M.lookup i plSlots of
 			Just slotToRevive@(Slot _ f) ->
 								let
-									Right (newGSidentified, modSlot) = applyResult newGSrevived (modifyFunction ms I)
-									Right (newGSrevived, revivedMS)  = applyResult gs           (modifyMaybeThisSlot modSlot (applyRevive pl i slotToRevive) I)
-								in  Right (newGSrevived, revivedMS)
+									Right (newGSrevived, revivedMS)  = applyResult gs           (applyRevive pl i slotToRevive)
+									Right (newGSidentified, modSlot) = applyResult newGSrevived (identifyFunction ms revivedMS)
+								in  Right (newGSidentified, modSlot)
 			Nothing -> Left $ "Error of applying 'revive' to " ++ show i ++ ": invalid proponent slot number."
 
-apply gs ms (Zombie Undef x) (Zero)         = applyResult gs (modifyFunction ms (Zombie (FValue 0) x))
-apply gs ms (Zombie Undef x) val@(FValue i) = applyResult gs (modifyFunction ms (Zombie val x))
-apply gs@(GameState _ _ pl _) ms (Zombie (FValue i) Undef) f = 
+-- zombie app
+apply appCnt gs ms (Zombie Undef x) (Zero)         | appCnt <= appLimit = applyResult gs (modifyFunction ms (Zombie (FValue 0) x))
+apply appCnt gs ms (Zombie Undef x) val@(FValue i) | appCnt <= appLimit = applyResult gs (modifyFunction ms (Zombie val x))
+apply appCnt gs@(GameState _ _ pl _) ms (Zombie (FValue i) Undef) f | appCnt <= appLimit = 
 		let
 			otherP = otherPlayer pl
 			otherPlSlots = playerSlots gs otherP
@@ -181,32 +192,59 @@ apply gs@(GameState _ _ pl _) ms (Zombie (FValue i) Undef) f =
 		case M.lookup (255 - i) otherPlSlots of
 			Just slotToZombie@(Slot _ f) ->
 								let
-									Right (newGSzombied, zombiedMS)  = applyResult gs (applyZombie otherP i slotToZombie f)
+									Right (newGSzombied, zombiedMS)  = applyResult gs (applyZombie otherP (255 - i) slotToZombie f)
 									Right (newGSidentified, modSlot) = applyResult newGSzombied (modifyFunction ms I)
 								in  Right (newGSidentified, modSlot)
-			Nothing -> Left $ "Error of applying 'revive' to " ++ show i ++ ": invalid proponent slot number."
+			Nothing -> Left $ "Error of applying 'revive' to " ++ show (255 - i) ++ ": invalid proponent slot number."
 
-apply _ _ f c = Left $ "Error of applying " ++ show f ++ " to " ++ show c ++ ": don't know how to apply."
+apply appCnt _ _ f c | appCnt > appLimit = Left $ "Error of applying " ++ show f ++ " to " ++ show c ++ ": application limit (" ++ show appLimit ++") exceeded."
+apply _ _ _ f c = Left $ "Error of applying " ++ show f ++ " to " ++ show c ++ ": don't know how to apply."
 
 
 rightApp :: GameState -> ModifiedSlot -> Card -> (String, GameState)
 rightApp gs ms@(pl, _, slot@(Slot vit f)) card | isSlotAlive slot =
-	case apply gs ms f card of
+	case apply appLimitStartValue gs ms f card of
 		Right (newGS, modifiedSlots) -> ("Right applying Ok.", newGS)
 		Left msg -> case applyResult gs (modifyFunction ms I) of
-						Right (newGS, _) -> (msg, newGS)
+						Right (newGS2, _) -> (msg, newGS2)
 						Left msg2        -> (msg2, gs)
 rightApp gs ms card | otherwise = case applyResult gs (modifyFunction ms I) of
-						Right (newGS, _) -> ("Slot is dead.", newGS)
+						Right (newGS2, _) -> ("Slot is dead.", newGS2)
 						Left msg2        -> (msg2, gs)
 
 leftApp :: GameState -> ModifiedSlot -> Card -> (String, GameState)
 leftApp gs ms@(pl, _, slot@(Slot vit f)) card | isSlotAlive slot =
-	case apply gs ms card f of
+	case apply appLimitStartValue gs ms card f of
 		Right (newGS, modifiedSlots) -> ("Left applying Ok.", newGS)
 		Left msg -> case applyResult gs (modifyFunction ms I) of
-						Right (newGS, _) -> (msg, newGS)
+						Right (newGS2, _) -> (msg, newGS2)
 						Left msg2        -> (msg2, gs)
 leftApp gs ms card | otherwise = case applyResult gs (modifyFunction ms I) of
-						Right (newGS, _) -> ("Slot is dead.", newGS)
+						Right (newGS2, _) -> ("Slot is dead.", newGS2)
 						Left msg2        -> (msg2, gs)
+						
+
+autoApplySlot :: GameState -> ModifiedSlot -> Card -> (String, GameState)
+autoApplySlot gs ms@(pl, slIdx, slot@(Slot vit f)) card | not $ isSlotAlive $ slot = let
+																		(msg, rAppGs) = case apply appLimitStartValue gs ms f card of
+																							Right (newGS, _) -> ([], newGS)
+																							Left msg -> case applyResult gs (modifyFunction ms I) of
+																											Right (newGS2, _) -> (msg, newGS2)
+																											Left msg2         -> (msg2, gs)
+																		Right (revivedSlGS, _) = applyResult rAppGs (pl, slIdx, (Slot 0 I))
+																	in ([], revivedSlGS)
+								        | otherwise = ([], gs)
+
+autoApp' :: Int -> GameState -> ([String], GameState)
+autoApp' slIdx gs@(GameState _ _ pl _)  | slIdx == defaultSlotCount = (["End of autoApp."], gs)
+										| otherwise = let plSlots = playerSlots gs pl in
+			case M.lookup slIdx plSlots of
+				Just slot@(Slot v f) -> let
+								(msg, slotAppliedGS) = autoApplySlot gs (pl, slIdx, (Slot v f)) I
+								(newMsgs, newGS2)    = autoApp' (slIdx+1) slotAppliedGS
+							 in (msg : newMsgs, newGS2)
+
+autoApp :: GameState -> (String, GameState)
+autoApp gs = let (msgs, newGS) = autoApp' 0 gs in (unlines . (filter (/= [])) $ msgs, newGS)
+		
+		
